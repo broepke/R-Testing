@@ -1,0 +1,256 @@
+# R Testing
+
+Taken from:
+
+[Exploring R² and regression variance with Euler/Venn diagrams](https://www.andrewheiss.com/blog/2021/08/21/r2-euler/)
+
+```{r}
+library(tidyverse)     # For ggplot, dplyr, and friends
+library(broom)         # For converting models into data frames
+library(gapminder)     # For health and wealth data
+library(faux)          # For generating fake data
+library(eulerr)        # For creating Euler and Venn diagrams
+```
+
+
+```{r}
+# Just look at 2007
+gapminder_2007 <- gapminder %>%
+  filter(year == 2007)
+
+super_naive_model <- lm(lifeExp ~ gdpPercap, data = gapminder_2007)
+tidy(super_naive_model)
+```
+
+```{r}
+glance(super_naive_model)
+```
+
+```{r}
+set.seed(1234)
+df <- rnorm_multi(n = 100,
+                  mu = c(10, 9, 9),
+                  sd = c(2, 1.7, 1.3),
+                  r = c(0.5, 0.3, 0.4),
+                  varnames = c("Y", "X1", "X2"),
+                  empirical = FALSE)
+```
+
+
+```{r}
+head(df)
+```
+
+
+```{r}
+cor(df)
+```
+
+
+```{r}
+# Sum of squares, or the numerator of the variance equation
+ss <- function(x) {
+  sum((x - mean(x))^2)
+}
+```
+
+
+```{r}
+ss_y <- ss(df$Y)
+ss_x1 <- ss(df$X1)
+
+plot(euler(c("Y" = ss_y,
+             "X1" = ss_x1)),
+     quantities = TRUE)
+```
+
+```{r}
+aov(Y ~ X1, data = df)
+```
+
+```{r}
+ss_both_y_x1 <- aov(Y ~ X1, data = df) %>%
+  tidy() %>%
+  filter(term == "X1") %>%
+  pull(sumsq)
+ss_both_y_x1
+
+plot(euler(c("Y" = ss_y - ss_both_y_x1,
+             "X1" = ss_x1 - ss_both_y_x1,
+             "Y&X1" = ss_both_y_x1)),
+     quantities = TRUE)
+```
+
+```{r}
+plot(euler(c("Y" = ss_y - ss_both_y_x1,
+             "X1" = ss_x1 - ss_both_y_x1,
+             "Y&X1" = ss_both_y_x1)),
+     quantities = c("A", "B", "C"))
+```
+
+```{r}
+part_a <- ss_y - ss_both_y_x1
+part_c <- ss_both_y_x1
+
+part_c / (part_a + part_c)
+```
+
+
+```{r}
+lm(Y ~ X1, data = df) %>%
+  glance() %>%
+  pull(r.squared)
+```
+
+
+```{r}
+plot(euler(c("Y" = 4,
+             "X1" = 4,
+             "X2" = 4,
+             "X1&Y" = 2,
+             "X2&Y" = 2,
+             "X1&X2" = 2,
+             "Y&X1&X2" = 0.5)),
+     quantities = c(LETTERS[1:7]))
+```
+
+
+```{r}
+y_total <- ss(df$Y)    # A + D + E + G
+x1_total <- ss(df$X1)  # B + D + F + G
+x2_total <- ss(df$X2)  # C + E + F + G
+
+# A
+y_alone <- aov(Y ~ X2 + X1, data = df) %>%
+  tidy() %>%
+  filter(term == "Residuals") %>%
+  pull(sumsq)
+
+# B
+x1_alone <- aov(X1 ~ Y + X2, data = df) %>%
+  tidy() %>%
+  filter(term == "Residuals") %>%
+  pull(sumsq)
+
+# C
+x2_alone <- aov(X2 ~ Y + X1, data = df) %>%
+  tidy() %>%
+  filter(term == "Residuals") %>%
+  pull(sumsq)
+
+# D + G
+y_plus_x1 <- aov(Y ~ X1, data = df) %>%
+  tidy() %>%
+  filter(term == "X1") %>%
+  pull(sumsq)
+
+# E + G
+y_plus_x2 <- aov(Y ~ X2, data = df) %>%
+  tidy() %>%
+  filter(term == "X2") %>%
+  pull(sumsq)
+
+# F + G
+x1_plus_x2 <- aov(X1 ~ X2, data = df) %>%
+  tidy() %>%
+  filter(term == "X2") %>%
+  pull(sumsq)
+
+# D = (A + D + E + G) − A − (E + G)
+y_x1_alone <- y_total - y_alone - y_plus_x2
+
+# E = (A + D + E + G) − A − (D + G)
+y_x2_alone <- y_total - y_alone - y_plus_x1
+
+# G = (D + G) − D
+y_x1_x2_alone <- y_plus_x1 - y_x1_alone
+
+# F = (F + G) - G
+x1_x2_alone <- x1_plus_x2 - y_x1_x2_alone
+```
+
+```{r}
+all_pieces <- c("Y" = y_alone,
+                "X1" = x1_alone,
+                "X2" = x2_alone,
+                "X1&Y" = y_x1_alone,
+                "X2&Y" = y_x2_alone,
+                "X1&X2" = x1_x2_alone,
+                "Y&X1&X2" = y_x1_x2_alone)
+
+plot(euler(all_pieces),
+     quantities = LETTERS[1:7])
+```
+
+```{r}
+library(patchwork)  # For combining ggplot and grid elements
+library(grid)       # For making custom grid grobs
+library(latex2exp)  # For writing LaTeX-like text with grid plots
+
+nice_plot <- plot(euler(all_pieces),
+                  quantities = list(labels = LETTERS[1:7], fontsize = 16),
+                  fills = list(fill = c("#7FDBFF", "grey30", "grey80",
+                                        "#FF851B", "#FF851B", "grey50", "#FF851B"),
+                               alpha = c(1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.35)),
+                  labels = list(fontface = "bold", fontsize = 20))
+
+math_part <- textGrob(TeX("R^2 = \\frac{D + E + G}{A + D + E + G}"),
+                      gp = gpar(col = "grey50", fontsize = 13))
+
+```
+
+```{r}
+# Ordinarily patchwork works just fine with grid grob objects, like the results
+# from plot.euler(), but *not* when they're the first element in patchwork chain
+# of plots. To make grob objects work nicely with patchwork, we need to wrap
+# them in wrap_elements()
+wrap_elements(nice_plot) +
+  inset_element(math_part,
+                left = -0.04, bottom = 0.72, right = 0.3, top = 0.85) +
+  plot_annotation(
+    title = "R² represented as an Euler diagram",
+    subtitle = "Orange area (D + E + G) shows the total variance in\noutcome Y that is jointly explained by X1 and X2",
+    caption = "Circles sized according to each variable's sum of squares; size of overlapping areas\nis not 100% correct due to limitations in available geometric space",
+    theme = theme(plot.title = element_text(size = 20, face = "bold"),
+                  plot.subtitle = element_text(size = 15),
+                  plot.caption = element_text(size = 10, hjust = 0))
+  )
+```
+
+```{r}
+plot(euler(all_pieces),
+     quantities = LETTERS[1:7],
+     fills = c(rep("white", 5), rep("#FF4136", 2)))
+```
+
+
+```{r}
+plot(euler(c("Next show\non Netflix" = 1,
+             "X1" = 4,
+             "X2" = 6,
+             "X3" = 4,
+             "X4" = 6,
+             "X5" = 6,
+             "X1&Next show\non Netflix" = 2,
+             "X2&Next show\non Netflix" = 4,
+             "X3&Next show\non Netflix" = 4,
+             "X4&Next show\non Netflix" = 2,
+             "X5&Next show\non Netflix" = 4,
+             "X1&X2" = 2,
+             "Next show\non Netflix&X1&X2" = 0.5)))
+```
+
+
+```{r}
+plot(euler(all_pieces),
+     quantities = TRUE)
+```
+
+```{r}
+error_plot(euler(all_pieces),
+           quantities = TRUE)
+
+```
+
+
+
