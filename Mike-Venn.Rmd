@@ -1,0 +1,33 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+# DISTINCT EMAILS ACCROSS 3 PERSON SYSTEMS
+# By Mike Aubry Dec 2020 - March 2021# A = OXYGEN IDENTITY
+# B = SFDC CONTACT
+# C = MARKETO LEADS# Install Eulerr
+# https://github.com/jolars/eulerr
+# install.packages("eulerr")
+library(eulerr)#
+# FILTERS
+## 12/14/2020
+# Filters
+EMAILS <- c(
+        "A" = 3830029,
+        "B" = 23063945,
+        "C" = 1258443,
+        "A&B" = 86876346,
+        "A&C" = 111654,
+        "B&C" = 4577838,
+        "A&B&C" = 12506770
+        )
+plot(venn(EMAILS))
+plot(euler(EMAILS, shape = "ellipse"), quantities = TRUE)
+```
+
