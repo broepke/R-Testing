@@ -9,7 +9,8 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 
 ```{r}
 # DISTINCT EMAILS ACCROSS 3 PERSON SYSTEMS
-# By Mike Aubry Dec 2020 - March 2021# A = OXYGEN IDENTITY
+# By Mike Aubry Dec 2020 - March 2021
+# A = OXYGEN IDENTITY
 # B = SFDC CONTACT
 # C = MARKETO LEADS# Install Eulerr
 # https://github.com/jolars/eulerr
